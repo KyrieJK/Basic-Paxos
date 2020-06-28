@@ -19,8 +19,8 @@ const (
 type message struct {
 	from, to int
 	typ      msgType
-	n        int
-	prevn    int
+	seq      int
+	prevSeq  int
 	value    string
 }
 
@@ -40,9 +40,9 @@ func (m message) proposalValue() string {
 func (m message) proposalNumber() int {
 	switch m.typ {
 	case Promise:
-		return m.prevn
+		return m.prevSeq
 	case Accept:
-		return m.n
+		return m.seq
 	default:
 		panic("unexpected proposalN")
 	}
