@@ -24,7 +24,7 @@ type message struct {
 	value    string
 }
 
-func (m message) number() int {
+func (m message) seqNumber() int {
 	return m.seq
 }
 
@@ -49,7 +49,7 @@ func (m message) proposalNumber() int {
 }
 
 type promise interface {
-	number() int
+	seqNumber() int
 }
 
 type accept interface {

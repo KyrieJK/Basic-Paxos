@@ -17,11 +17,11 @@ type proposer struct {
 
 func newProposer(id int, value string, nt network, acceptors ...int) *proposer {
 	p := &proposer{
-		id:        id,
-		lastSeq:   0,
-		value:     value,
-		acceptors: make(map[int]promise),
-		nt:        nt,
+		id:           id,
+		seq:          0,
+		proposeValue: value,
+		acceptors:    make(map[int]promise),
+		nt:           nt,
 	}
 
 	for _, a := range acceptors {
@@ -65,7 +65,7 @@ func (p *proposer) propose() []message {
 	sendMsgCount := 0
 	var msgList []message
 	for aceptId, aceptMsg := range p.acceptors {
-		if aceptMsg.number() == p.getProposeNum() {
+		if aceptMsg.seqNumber() == p.getProposeNum() {
 			msg := message{from: p.id, to: aceptId, typ: Propose, seq: p.getProposeNum(), value: p.proposeValue}
 			log.Println("Propose val:", msg.value)
 			msgList = append(msgList, msg)
@@ -83,7 +83,6 @@ func (p *proposer) prepare() []message {
 	p.seq++
 	sendMsgCount := 0
 	msgList := make([]message, len(p.acceptors)/2+1)
-	i := 0
 	for to, _ := range p.acceptors {
 		msg := message{
 			from:  p.id,
@@ -106,7 +105,7 @@ func (p *proposer) checkRecvPromise(promise message) {
 	previousPromise := p.acceptors[promise.from]
 	log.Println("prevMsg:", previousPromise, " promiseMsg:", promise)
 
-	if previousPromise.number() < promise.number() {
+	if previousPromise.seqNumber() < promise.seqNumber() {
 		log.Println("Proposer:", p.id, "get new promise:", promise)
 		p.acceptors[promise.from] = promise
 
@@ -125,7 +124,7 @@ func (p *proposer) quorum() int {
 func (p *proposer) getRecvPromiseCount() int {
 	recvCount := 0
 	for _, aceptMsg := range p.acceptors {
-		if aceptMsg.number() == p.getProposeNum() {
+		if aceptMsg.seqNumber() == p.getProposeNum() {
 			recvCount++
 		}
 	}
