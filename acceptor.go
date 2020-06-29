@@ -5,6 +5,12 @@ import (
 	"time"
 )
 
+func newAcceptor(id int, nt network, learners ...int) *acceptor {
+	newAcceptor := acceptor{id: id, nt: nt}
+	newAcceptor.learners = learners
+	return &newAcceptor
+}
+
 type acceptor struct {
 	id       int
 	learners []int

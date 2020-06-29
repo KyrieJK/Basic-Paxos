@@ -54,7 +54,7 @@ func (p *proposer) run() {
 		}
 	}
 
-	log.Printf("proposer: %d promise %d reached quorum %d", p.id, p.getProposeNum(), p.proposeValue)
+	log.Printf("proposer: %d promise %d reached quorum %d", p.id, p.getProposeNum(), p.quorum())
 	ms := p.propose()
 	for i := range ms {
 		p.nt.send(ms[i])
