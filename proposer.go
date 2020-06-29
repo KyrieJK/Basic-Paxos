@@ -1,6 +1,9 @@
 package Basic_Paxos
 
-import "log"
+import (
+	"log"
+	"time"
+)
 
 type proposer struct {
 	id           int
@@ -26,6 +29,54 @@ func newProposer(id int, value string, nt network, acceptors ...int) *proposer {
 	}
 
 	return p
+}
+
+func (p *proposer) run() {
+	log.Println("Proposer start run ... val:", p.proposeValue)
+	for !p.quorumReached() {
+		msgs := p.prepare()
+		for _, msg := range msgs {
+			p.nt.send(msg)
+			log.Println("Proposer:send", msg)
+		}
+
+		log.Println("Proposer:prepare recv")
+		m, ok := p.nt.recv(time.Second)
+		if !ok {
+			continue
+		}
+
+		switch m.typ {
+		case Promise:
+			p.checkRecvPromise(m)
+		default:
+			panic("Unsupport message")
+		}
+	}
+
+	log.Printf("proposer: %d promise %d reached quorum %d", p.id, p.getProposeNum(), p.proposeValue)
+	ms := p.propose()
+	for i := range ms {
+		p.nt.send(ms[i])
+	}
+}
+
+func (p *proposer) propose() []message {
+	sendMsgCount := 0
+	var msgList []message
+	for aceptId, aceptMsg := range p.acceptors {
+		if aceptMsg.number() == p.getProposeNum() {
+			msg := message{from: p.id, to: aceptId, typ: Propose, seq: p.getProposeNum(), value: p.proposeValue}
+			log.Println("Propose val:", msg.value)
+			msgList = append(msgList, msg)
+		}
+		sendMsgCount++
+		if sendMsgCount > p.quorum() {
+			break
+		}
+	}
+	log.Println("proposer propose msg list:", msgList)
+	return msgList
 }
 
 func (p *proposer) prepare() []message {
@@ -69,6 +120,21 @@ func (p *proposer) checkRecvPromise(promise message) {
 
 func (p *proposer) quorum() int {
 	return len(p.acceptors)/2 + 1
+}
+
+func (p *proposer) getRecvPromiseCount() int {
+	recvCount := 0
+	for _, aceptMsg := range p.acceptors {
+		if aceptMsg.number() == p.getProposeNum() {
+			recvCount++
+		}
+	}
+
+	return recvCount
+}
+
+func (p *proposer) quorumReached() bool {
+	return p.getRecvPromiseCount() > p.quorum()
 }
 
 func (p *proposer) getProposeNum() int {

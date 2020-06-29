@@ -25,7 +25,7 @@ type message struct {
 }
 
 func (m message) number() int {
-	return m.n
+	return m.seq
 }
 
 func (m message) proposalValue() string {
