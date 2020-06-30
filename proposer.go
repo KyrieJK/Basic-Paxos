@@ -109,7 +109,7 @@ func (p *proposer) checkRecvPromise(promise message) {
 		log.Println("Proposer:", p.id, "get new promise:", promise)
 		p.acceptors[promise.from] = promise
 
-		if promise.proposalNumber() > p.proposeNum {
+		if promise.proposalNumber() > p.getProposeNum() {
 			log.Printf("proposer: %d updated the value [%s] to %s", p.id, p.proposeValue, promise.proposalValue())
 			p.proposeNum = promise.proposalNumber()
 			p.proposeValue = promise.proposalValue()
@@ -128,7 +128,7 @@ func (p *proposer) getRecvPromiseCount() int {
 			recvCount++
 		}
 	}
-
+	log.Println("Current proposer recv promise count=", recvCount)
 	return recvCount
 }
 
