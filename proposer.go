@@ -82,7 +82,7 @@ func (p *proposer) propose() []message {
 func (p *proposer) prepare() []message {
 	p.seq++
 	sendMsgCount := 0
-	msgList := make([]message, len(p.acceptors)/2+1)
+	msgList := make([]message, p.quorum())
 	for to, _ := range p.acceptors {
 		msg := message{
 			from:  p.id,
@@ -93,7 +93,7 @@ func (p *proposer) prepare() []message {
 		}
 		msgList = append(msgList, msg)
 		sendMsgCount++
-		if sendMsgCount > p.quorum() {
+		if sendMsgCount == p.quorum() {
 			break
 		}
 	}
