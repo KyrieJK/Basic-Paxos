@@ -6,7 +6,7 @@ import (
 )
 
 func newAcceptor(id int, nt network, learners ...int) *acceptor {
-	newAcceptor := acceptor{id: id, nt: nt}
+	newAcceptor := acceptor{id: id, nt: nt, promiseMsg: message{}}
 	newAcceptor.learners = learners
 	return &newAcceptor
 }
@@ -16,7 +16,7 @@ type acceptor struct {
 	learners []int
 
 	acceptMsg  message
-	promiseMsg message
+	promiseMsg promise
 	nt         network
 }
 
@@ -29,9 +29,10 @@ func (a *acceptor) run() {
 
 		switch m.typ {
 		case Prepare:
-			promiseMsg := a.recvPrepare(m)
-			a.nt.send(*promiseMsg)
-			continue
+			promiseMsg, ok := a.recvPrepare(m)
+			if ok {
+				a.nt.send(promiseMsg)
+			}
 		case Propose:
 			accepted := a.recvPropose(m)
 			if accepted {
@@ -49,22 +50,28 @@ func (a *acceptor) run() {
 	}
 }
 
-func (a *acceptor) recvPrepare(prepare message) *message {
+func (a *acceptor) recvPrepare(prepare message) (message, bool) {
 	if a.promiseMsg.seqNumber() >= prepare.seqNumber() {
 		log.Println("acceptor ID:", a.id, "Already accept bigger one")
-		return nil
+		return message{}, false
 	}
 
-	log.Println("acceptor ID:", a.id, " Promise")
-	prepare.to = prepare.from
-	prepare.from = a.id
-	prepare.typ = Promise
-	a.acceptMsg = prepare
-	return &prepare
+	//log.Println("acceptor ID:", a.id, " Promise")
+	log.Printf("acceptor: %d [promised: %+v] promised %+v", a.id, a.promiseMsg, prepare)
+	a.promiseMsg = prepare
+	m := message{
+		from:    a.id,
+		to:      prepare.from,
+		typ:     Promise,
+		seq:     a.promiseMsg.seqNumber(),
+		prevSeq: a.acceptMsg.seq,
+		value:   a.acceptMsg.value,
+	}
+	return m, true
 }
 
 func (a *acceptor) recvPropose(proposeMsg message) bool {
-	if a.acceptMsg.seqNumber() > proposeMsg.seqNumber() || a.acceptMsg.seqNumber() < proposeMsg.seqNumber() {
+	if a.promiseMsg.seqNumber() > proposeMsg.seqNumber() || a.promiseMsg.seqNumber() < proposeMsg.seqNumber() {
 		return false
 	}
 	a.acceptMsg = proposeMsg

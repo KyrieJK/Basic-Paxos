@@ -82,23 +82,31 @@ func (p *proposer) propose() []message {
 func (p *proposer) prepare() []message {
 	p.seq++
 	sendMsgCount := 0
-	msgList := make([]message, p.quorum())
-	for to, _ := range p.acceptors {
-		msg := message{
-			from:  p.id,
-			to:    to,
-			typ:   Prepare,
-			seq:   p.getProposeNum(),
-			value: p.proposeValue,
-		}
-		msgList = append(msgList, msg)
+	//msgList := make([]message, p.quorum())
+	//for to, _ := range p.acceptors {
+	//	msg := message{
+	//		from:  p.id,
+	//		to:    to,
+	//		typ:   Prepare,
+	//		seq:   p.getProposeNum(),
+	//		value: p.proposeValue,
+	//	}
+	//	msgList = append(msgList, msg)
+	//	sendMsgCount++
+	//	if sendMsgCount == p.quorum() {
+	//		break
+	//	}
+	//}
+	ms := make([]message, p.quorum())
+	for to := range p.acceptors {
+		ms[sendMsgCount] = message{from: p.id, to: to, typ: Prepare, seq: p.getProposeNum()}
 		sendMsgCount++
 		if sendMsgCount == p.quorum() {
 			break
 		}
 	}
 
-	return msgList
+	return ms
 }
 
 func (p *proposer) checkRecvPromise(promise message) {
@@ -109,7 +117,7 @@ func (p *proposer) checkRecvPromise(promise message) {
 		log.Println("Proposer:", p.id, "get new promise:", promise)
 		p.acceptors[promise.from] = promise
 
-		if promise.proposalNumber() > p.getProposeNum() {
+		if promise.proposalNumber() > p.proposeNum {
 			log.Printf("proposer: %d updated the value [%s] to %s", p.id, p.proposeValue, promise.proposalValue())
 			p.proposeNum = promise.proposalNumber()
 			p.proposeValue = promise.proposalValue()
