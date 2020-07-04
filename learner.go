@@ -41,7 +41,7 @@ func (l *learner) learn() string {
 
 func (l *learner) receiveAccepted(accepted message) {
 	a := l.acceptors[accepted.from]
-	if a.proposalNumber() < accepted.seqNumber() {
+	if a.proposalNumber() < accepted.seq {
 		log.Printf("learner: %d received a new accepted proposal %+v", l.id, accepted)
 		l.acceptors[accepted.from] = accepted
 	}
@@ -63,7 +63,7 @@ func (l *learner) chosen() (accept, bool) {
 	}
 
 	for n, count := range counts {
-		if count > l.quorum() {
+		if count >= l.quorum() {
 			return accepteds[n], true
 		}
 	}

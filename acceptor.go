@@ -22,17 +22,11 @@ type acceptor struct {
 
 func (a *acceptor) run() {
 	for {
-		m, ok := a.nt.recv(time.Second)
+		m, ok := a.nt.recv(time.Hour)
 		if !ok {
 			continue
 		}
-
 		switch m.typ {
-		case Prepare:
-			promiseMsg, ok := a.recvPrepare(m)
-			if ok {
-				a.nt.send(promiseMsg)
-			}
 		case Propose:
 			accepted := a.recvPropose(m)
 			if accepted {
@@ -43,6 +37,11 @@ func (a *acceptor) run() {
 					m.typ = Accept
 					a.nt.send(m)
 				}
+			}
+		case Prepare:
+			promiseMsg, ok := a.recvPrepare(m)
+			if ok {
+				a.nt.send(promiseMsg)
 			}
 		default:
 			log.Panicf("acceptor: %d unexcepted message type: %v", a.id, m.typ)
@@ -71,8 +70,13 @@ func (a *acceptor) recvPrepare(prepare message) (message, bool) {
 }
 
 func (a *acceptor) recvPropose(proposeMsg message) bool {
-	if a.promiseMsg.seqNumber() > proposeMsg.seqNumber() || a.promiseMsg.seqNumber() < proposeMsg.seqNumber() {
+	if a.promiseMsg.seqNumber() > proposeMsg.seqNumber() {
+		log.Printf("acceptor:%d [promised:%+v] ignored proposal %+v", a.id, a.promiseMsg, proposeMsg)
 		return false
+	}
+
+	if a.promiseMsg.seqNumber() < proposeMsg.seqNumber() {
+		log.Panicf("acceptor: %d [promised:%+v,accept:%+v] accepted proposal %+v", a.id, a.promiseMsg, a.acceptMsg, proposeMsg)
 	}
 	a.acceptMsg = proposeMsg
 	a.acceptMsg.typ = Accept

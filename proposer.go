@@ -32,16 +32,19 @@ func newProposer(id int, value string, nt network, acceptors ...int) *proposer {
 }
 
 func (p *proposer) run() {
+	var ok bool
+	var m message
 	log.Println("Proposer start run ... val:", p.proposeValue)
-	for !p.quorumReached() {
-		msgs := p.prepare()
-		for _, msg := range msgs {
-			p.nt.send(msg)
-			log.Println("Proposer:send", msg)
+	for !p.majorityReached() {
+		if !ok {
+			msgs := p.prepare()
+			for _, msg := range msgs {
+				p.nt.send(msg)
+				log.Println("Proposer:send", msg)
+			}
 		}
-
 		log.Println("Proposer:prepare recv")
-		m, ok := p.nt.recv(time.Second)
+		m, ok = p.nt.recv(time.Second)
 		if !ok {
 			continue
 		}
@@ -50,11 +53,13 @@ func (p *proposer) run() {
 		case Promise:
 			p.checkRecvPromise(m)
 		default:
-			panic("Unsupport message")
+			log.Panicf("proposer:%d unexcepted message type:%v", p.id, m.typ)
 		}
 	}
 
 	log.Printf("proposer: %d promise %d reached quorum %d", p.id, p.getProposeNum(), p.quorum())
+
+	//propose stage
 	ms := p.propose()
 	for i := range ms {
 		p.nt.send(ms[i])
@@ -62,21 +67,34 @@ func (p *proposer) run() {
 }
 
 func (p *proposer) propose() []message {
-	sendMsgCount := 0
-	var msgList []message
-	for aceptId, aceptMsg := range p.acceptors {
-		if aceptMsg.seqNumber() == p.getProposeNum() {
-			msg := message{from: p.id, to: aceptId, typ: Propose, seq: p.getProposeNum(), value: p.proposeValue}
-			log.Println("Propose val:", msg.value)
-			msgList = append(msgList, msg)
+	//sendMsgCount := 0
+	//var msgList []message
+	//for aceptId, aceptMsg := range p.acceptors {
+	//	if aceptMsg.seqNumber() == p.getProposeNum() {
+	//		msg := message{from: p.id, to: aceptId, typ: Propose, seq: p.getProposeNum(), value: p.proposeValue}
+	//		log.Println("Propose val:", msg.value)
+	//		msgList = append(msgList, msg)
+	//	}
+	//	sendMsgCount++
+	//	if sendMsgCount > p.quorum() {
+	//		break
+	//	}
+	//}
+	//log.Println("proposer propose msg list:", msgList)
+	//return msgList
+	ms := make([]message, p.quorum())
+
+	i := 0
+	for to, promise := range p.acceptors {
+		if promise.seqNumber() == p.getProposeNum() {
+			ms[i] = message{from: p.id, to: to, typ: Propose, seq: p.getProposeNum(), value: p.proposeValue}
+			i++
 		}
-		sendMsgCount++
-		if sendMsgCount > p.quorum() {
+		if i == p.quorum() {
 			break
 		}
 	}
-	log.Println("proposer propose msg list:", msgList)
-	return msgList
+	return ms
 }
 
 func (p *proposer) prepare() []message {
@@ -129,22 +147,34 @@ func (p *proposer) quorum() int {
 	return len(p.acceptors)/2 + 1
 }
 
-func (p *proposer) getRecvPromiseCount() int {
-	recvCount := 0
-	for _, aceptMsg := range p.acceptors {
-		if aceptMsg.seqNumber() == p.getProposeNum() {
-			recvCount++
+//func (p *proposer) getRecvPromiseCount() int {
+//	recvCount := 0
+//	for _, aceptMsg := range p.acceptors {
+//		if aceptMsg.seqNumber() == p.getProposeNum() {
+//			recvCount++
+//		}
+//	}
+//	log.Println("Current proposer recv promise count=", recvCount)
+//	return recvCount
+//}
+//
+//func (p *proposer) quorumReached() bool {
+//	return p.getRecvPromiseCount() > p.quorum()
+//}
+
+func (p *proposer) majorityReached() bool {
+	m := 0
+	for _, promise := range p.acceptors {
+		if promise.seqNumber() == p.getProposeNum() {
+			m++
 		}
 	}
-	log.Println("Current proposer recv promise count=", recvCount)
-	return recvCount
-}
-
-func (p *proposer) quorumReached() bool {
-	return p.getRecvPromiseCount() > p.quorum()
+	if m >= p.quorum() {
+		return true
+	}
+	return false
 }
 
 func (p *proposer) getProposeNum() int {
-	p.proposeNum = p.seq<<4 | p.id
-	return p.proposeNum
+	return p.seq<<16 | p.id
 }
